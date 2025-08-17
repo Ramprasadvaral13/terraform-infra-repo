@@ -7,7 +7,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "varal-terraform-state-bucket-123456"
+    bucket         = "shreyas-terraform-state-bucket-123456"
     key            = "networking/vpc/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-locks"
