@@ -51,7 +51,7 @@ pipeline {
             when { expression { params.TERRAFORM_ACTION == 'apply' } }
             steps {
                 sh '''
-                ansible-playbook -i inventory.aws_ec2.yml backup-create.yml --private-key ~/.ssh/cloudtechdev1.pem
+                ansible-playbook -i inventory.aws_ec2.yml backup-create.yml --private-key ~/.ssh/clouddeva.pem
                 '''
             }
         }
@@ -59,7 +59,7 @@ pipeline {
             when { expression { params.TERRAFORM_ACTION == 'apply' } }
             steps {
                 sh '''
-                ansible-playbook -i inventory.aws_ec2.yml patch-linux.yml --private-key ~/.ssh/cloudtechdev1.pem
+                ansible-playbook -i inventory.aws_ec2.yml patch-linux.yml --private-key ~/.ssh/clouddeva.pem
                 '''
             }
         }
