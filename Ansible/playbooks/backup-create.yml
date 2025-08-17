@@ -1,0 +1,16 @@
+---
+- name: Create AMI backup before patching
+  hosts: tag_PatchGroup_Linux
+  gather_facts: yes
+  collections:
+    - amazon.aws
+  tasks:
+    - name: Create AMI of each instance for backup
+      amazon.aws.ec2_ami:
+        instance_id: "{{ hostvars[inventory_hostname]['ec2_instance_id'] }}"
+        name: "Backup-{{ inventory_hostname }}-{{ ansible_date_time.date }}"
+        description: "AMI backup for {{ inventory_hostname }} before patching"
+        region: "us-east-1"
+        wait: yes
+        state: present
+      delegate_to: localhost

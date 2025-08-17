@@ -1,0 +1,16 @@
+plugin: amazon.aws.aws_ec2
+regions:
+  - us-east-1
+
+filters:
+  instance-state-name: running
+
+compose:
+  ansible_host: private_ip_address
+  ansible_user: ubuntu
+  ansible_ssh_private_key_file: ~/.ssh/cloudtechdev1.pem
+  ec2_instance_id: instance_id
+
+keyed_groups:
+  - key: tags.PatchGroup
+    prefix: tag_PatchGroup

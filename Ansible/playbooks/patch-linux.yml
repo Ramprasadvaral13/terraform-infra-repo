@@ -1,0 +1,91 @@
+- name: Industry-grade Linux Security Patching with Logging and S3
+  hosts: tag_PatchGroup_Linux
+  become: yes
+  gather_facts: yes
+
+  vars:
+    patch_log_path: "/var/log/ansible/patch-log-{{ inventory_hostname }}.txt"
+    s3_bucket_name: "varal-ansible-s3"
+    s3_key_path: "patch-logs/{{ inventory_hostname }}-{{ ansible_date_time.iso8601 | regex_replace(':', '_') }}.txt"
+
+  pre_tasks:
+    - name: Ensure /var/log/ansible directory exists
+      file:
+        path: /var/log/ansible
+        state: directory
+        mode: '0755'
+
+  tasks:
+
+    ### --- Ubuntu/Debian systems ---
+    - name: Install unattended-upgrades (Debian/Ubuntu)
+      apt:
+        name: unattended-upgrades
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Run unattended-upgrade (Debian/Ubuntu - security updates)
+      command: unattended-upgrade -d
+      register: debian_patch_result
+      changed_when: "'Packages that will be upgraded' in debian_patch_result.stdout"
+      when: ansible_os_family == "Debian"
+
+    - name: Log Debian patch result to local file
+      copy:
+        content: "{{ debian_patch_result.stdout }}"
+        dest: "{{ patch_log_path }}"
+      when: ansible_os_family == "Debian"
+
+    - name: Check if reboot is required on Debian
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required_deb
+      when: ansible_os_family == "Debian"
+
+    ### --- RHEL/CentOS/Amazon Linux systems ---
+    - name: Apply security updates using DNF/YUM (RHEL/Amazon)
+      dnf:
+        security: yes
+        state: latest
+      register: rhel_patch_result
+      when: ansible_os_family == "RedHat"
+
+    - name: Log RHEL patch result to local file
+      copy:
+        content: "{{ rhel_patch_result.stdout_lines | join('\n') if rhel_patch_result.stdout_lines is defined else 'No output' }}"
+        dest: "{{ patch_log_path }}"
+      when: ansible_os_family == "RedHat"
+
+    - name: Check if reboot is required (RHEL)
+      command: needs-restarting -r
+      register: reboot_required_rhel
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "RedHat"
+
+    ### --- Conditional Reboot ---
+    - name: Reboot Debian/Ubuntu if needed
+      reboot:
+        msg: "Security patches applied. Rebooting Debian/Ubuntu."
+        reboot_timeout: 600
+      when:
+        - ansible_os_family == "Debian"
+        - reboot_required_deb.stat.exists
+
+    - name: Reboot RHEL/Amazon Linux if needed
+      reboot:
+        msg: "Security patches applied. Rebooting RHEL/Amazon."
+        reboot_timeout: 600
+      when:
+        - ansible_os_family == "RedHat"
+        - reboot_required_rhel.rc == 1
+
+    ### --- Upload Patch Logs to S3 ---
+    - name: Upload patch log to S3 bucket
+      amazon.aws.aws_s3:
+        bucket: "{{ s3_bucket_name }}"
+        object: "{{ s3_key_path }}"
+        src: "{{ patch_log_path }}"
+        mode: put
+        permission: private
+      when: ansible_os_family in ['Debian', 'RedHat']
