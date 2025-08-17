@@ -18,6 +18,7 @@ pipeline {
                 checkout scm
             }
         }
+
         stage('Terraform Init') {
             steps {
                 dir('Terraform') {
@@ -25,6 +26,7 @@ pipeline {
                 }
             }
         }
+
         stage('Terraform Validate') {
             when { expression { params.TERRAFORM_ACTION == 'apply' } }
             steps {
@@ -33,6 +35,7 @@ pipeline {
                 }
             }
         }
+
         stage('Terraform Plan') {
             when { expression { params.TERRAFORM_ACTION == 'apply' } }
             steps {
@@ -42,6 +45,7 @@ pipeline {
                 }
             }
         }
+
         stage('Terraform Apply/Destroy') {
             steps {
                 dir('Terraform') {
@@ -55,31 +59,34 @@ pipeline {
                 }
             }
         }
+
         stage('Ansible - AMI Backup') {
             when { expression { params.TERRAFORM_ACTION == 'apply' } }
             steps {
-                dir('Ansible/playbooks') {
+                dir('Ansible') {
                     sh '''
-                    ansible-playbook -i inventory.aws_ec2.yml backup-create.yml --private-key ~/.ssh/clouddeva.pem
+                    ansible-playbook -i inventory.aws_ec2.yml playbooks/backup-create.yml --private-key ~/.ssh/clouddeva.pem
                     '''
                 }
             }
         }
+
         stage('Ansible - Patch Linux') {
             when { expression { params.TERRAFORM_ACTION == 'apply' } }
             steps {
-                dir('Ansible/playbooks') {
+                dir('Ansible') {
                     sh '''
-                    ansible-playbook -i inventory.aws_ec2.yml patch-linux.yml --private-key ~/.ssh/clouddeva.pem
+                    ansible-playbook -i inventory.aws_ec2.yml playbooks/patch-linux.yml --private-key ~/.ssh/clouddeva.pem
                     '''
                 }
             }
         }
     }
+
     post {
         always {
-            archiveArtifacts artifacts: 'terraform/*.tfstate*', allowEmptyArchive: true
-            dir('terraform') {
+            archiveArtifacts artifacts: 'Terraform/*.tfstate*', allowEmptyArchive: true
+            dir('Terraform') {
                 sh 'rm -f tfplan || true'
             }
             cleanWs()
